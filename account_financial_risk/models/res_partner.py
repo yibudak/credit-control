@@ -174,7 +174,7 @@ class ResPartner(models.Model):
 
     def _compute_risk_allow_edit(self):
         self.update({'risk_allow_edit': self.env.user.has_group(
-            'account.group_account_manager')})
+            'account_financial_risk.group_overpass_partner_risk_exception')})
 
     @api.model
     def _get_risk_company_domain(self):
