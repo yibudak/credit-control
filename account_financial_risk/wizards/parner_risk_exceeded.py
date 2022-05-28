@@ -33,5 +33,8 @@ class PartnerRiskExceededWiz(models.TransientModel):
     @api.multi
     def button_continue(self):
         self.ensure_one()
+        bypass_risk = False
+        if self.env.user.has_group('account_financial_risk.group_overpass_partner_risk_exception'):
+            bypass_risk = True
         return getattr(self.origin_reference.with_context(
-            bypass_risk=True), self.continue_method)()
+            bypass_risk=bypass_risk), self.continue_method)()
