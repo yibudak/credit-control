@@ -7,6 +7,11 @@ from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
+class AccountPaymentTerm(models.Model):
+    _inherit = "account.payment.term"
+
+    risk_exception = fields.Boolean(string='confirm invoice even risk exceeds')
+
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 

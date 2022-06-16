@@ -37,7 +37,8 @@ class AccountInvoice(models.Model):
         self.ensure_one()
         partner = self.partner_id.commercial_partner_id
         exception_msg = ""
-        if partner.risk_exception:
+        term_exception = self.payment_term_id.risk_exception or False
+        if not term_exception and partner.risk_exception:
             exception_msg = _("Financial risk exceeded.\n")
         elif partner.risk_invoice_open_limit and (
                 (partner.risk_invoice_open + self.risk_amount_total_currency)
