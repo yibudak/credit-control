@@ -17,7 +17,6 @@
                             class="oe_highlight"
                             name="button_continue"
                             type="object"
-                            groups="account_financial_risk.group_overpass_partner_risk_exception"
                             />
                     <button string="Cancel"
                             class="oe_link"
