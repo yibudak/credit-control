@@ -10,8 +10,11 @@ class SaleOrder(models.Model):
 
     def risk_exception_msg(self):
         self.ensure_one()
+        #  Originally risk amount was converted to company
+        #  currency, but we changed to convert customer risk currency id
+        convert_currency = self.partner_id.risk_currency_id or self.company_id.currency_id
         risk_amount = self.currency_id._convert(
-            self.amount_total, self.company_id.currency_id,
+            self.amount_total, convert_currency,
             self.company_id, self.confirmation_date and
             self.confirmation_date.date()
             or fields.Date.context_today(self), round=False)
