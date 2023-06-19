@@ -4,6 +4,7 @@
 from math import copysign
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from datetime import timedelta
 
 CHANNEL_LIST = [
     ("letter", "Letter"),
@@ -381,26 +382,31 @@ class CreditControlPolicyLevel(models.Model):
     # ----- sql time related methods ---------
 
     @staticmethod
-    def _net_days_get_boundary():
-        return (
-            " (mv_line.date_maturity + %(delay)s)::date <= "
-            "date(%(controlling_date)s)"
-        )
+    def _net_days_get_boundary(controlling_date, policy_id):
+        return [
+            (
+                "date_maturity",
+                "<=",
+                controlling_date - timedelta(days=policy_id.delay_days),
+            ),
+        ]
 
     @staticmethod
-    def _end_of_month_get_boundary():
-        return (
-            "(date_trunc('MONTH', (mv_line.date_maturity + %(delay)s))+"
-            "INTERVAL '1 MONTH - 1 day')::date"
-            "<= date(%(controlling_date)s)"
-        )
+    def _end_of_month_get_boundary(controlling_date, policy_id):
+        raise NotImplementedError
+        # return (
+        #     "(date_trunc('MONTH', (mv_line.date_maturity + %(delay)s))+"
+        #     "INTERVAL '1 MONTH - 1 day')::date"
+        #     "<= date(%(controlling_date)s)"
+        # )
 
     @staticmethod
-    def _previous_date_get_boundary():
-        return "(cr_line.date + %(delay)s)::date <= date(%(controlling_date)s)"
+    def _previous_date_get_boundary(controlling_date, policy_id):
+        raise NotImplementedError
+        # return "(cr_line.date + %(delay)s)::date <= date(%(controlling_date)s)"
 
     @api.multi
-    def _get_sql_date_boundary_for_computation_mode(self):
+    def _get_sql_date_boundary_for_computation_mode(self, controlling_date):
         """Return a where clauses statement for the given controlling
         date and computation mode of the level
         """
@@ -408,7 +414,7 @@ class CreditControlPolicyLevel(models.Model):
         fname = "_%s_get_boundary" % (self.computation_mode,)
         if hasattr(self, fname):
             fnc = getattr(self, fname)
-            return fnc()
+            return fnc(controlling_date, self)
         else:
             raise NotImplementedError(
                 _("Can not get function for computation mode: " "%s is not implemented")
@@ -435,38 +441,15 @@ class CreditControlPolicyLevel(models.Model):
         move_line_obj = self.env["account.move.line"]
         if not lines:
             return move_line_obj
-        cr = self.env.cr
-        sql = (
-            "SELECT mv_line.id\n"
-            " FROM account_move_line mv_line\n"
-            " LEFT JOIN credit_control_line cr_line\n"
-            " ON (mv_line.id = cr_line.move_line_id)\n"
-            " AND cr_line.id = ("
-            "      SELECT max(id)"
-            "      FROM credit_control_line"
-            "      WHERE move_line_id = cr_line.move_line_id"
-            "      AND state NOT IN ('draft', 'ignored')"
-            "      AND NOT manually_overridden)\n"
-            " WHERE (mv_line.debit IS NOT NULL AND mv_line.debit != 0.0)\n"
-            " AND mv_line.id in %(line_ids)s\n"
-        )
-        sql += " AND "
-        _get_sql_date_part = self._get_sql_date_boundary_for_computation_mode
-        sql += _get_sql_date_part()
-        sql += " AND "
-        sql += self._get_sql_level_part()
-        data_dict = {
-            "controlling_date": controlling_date,
-            "line_ids": tuple(lines.ids),
-            "delay": self.delay_days,
-        }
 
-        # print cr.mogrify(sql, data_dict)
-        cr.execute(sql, data_dict)
-        res = cr.fetchall()
-        if res:
-            return move_line_obj.browse([row[0] for row in res])
-        return move_line_obj
+        domain = [
+            ("id", "in", lines.ids),
+            ("debit", "!=", 0.0),
+        ]
+        # Add date boundary
+        domain += self._get_sql_date_boundary_for_computation_mode(controlling_date)
+        suitable_lines = move_line_obj.search(domain)
+        return suitable_lines
 
     @api.multi
     @api.returns("account.move.line")
