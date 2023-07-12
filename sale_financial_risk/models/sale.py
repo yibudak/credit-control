@@ -115,8 +115,8 @@ class SaleOrderLine(models.Model):
                     risk_qty / line.product_uom_qty)
             else:
                 risk_amount = line.price_reduce_taxinc * risk_qty
-            line.risk_amount = line.order_id.currency_id._convert(
+            line.risk_amount = max(0, line.order_id.currency_id._convert(
                 risk_amount, line.company_id.currency_id,
                 line.company_id, line.order_id.confirmation_date and
                 line.order_id.confirmation_date.date()
-                or fields.Date.context_today(self), round=False)
+                or fields.Date.context_today(self), round=False))
